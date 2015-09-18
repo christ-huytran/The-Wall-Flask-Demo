@@ -79,7 +79,14 @@ def signout():
 @app.route('/messages', methods=['GET', 'POST'])
 def show():
 	if request.method == 'GET':
-		return render_template('messages.html')
+		fetch_messages_query = "SELECT messages.id as message_id, messages.message, concat(users.first_name, ' ', users.last_name) as author_name, messages.created_at FROM messages LEFT JOIN users ON users.id = messages.user_id order by created_at desc"
+		all_messages = mysql.fetch(fetch_messages_query)
+		return render_template('messages.html', all_messages=all_messages)
+	new_message = request.form['message']
+	escaped_new_message = new_message.replace("'", "\\'")
+	insert_message_query = "INSERT INTO messages (user_id, message, created_at, updated_at) VALUES ('{}', '{}', NOW(), NOW())".format(session['id'], escaped_new_message)
+	print insert_message_query
+	mysql.run_mysql_query(insert_message_query)
 	return redirect(url_for('show'))
 
 app.run(debug=True)
