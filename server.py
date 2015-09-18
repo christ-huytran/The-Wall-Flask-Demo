@@ -79,8 +79,17 @@ def signout():
 @app.route('/messages', methods=['GET', 'POST'])
 def show():
 	if request.method == 'GET':
-		fetch_messages_query = "SELECT messages.id as message_id, messages.message, concat(users.first_name, ' ', users.last_name) as author_name, messages.created_at FROM messages LEFT JOIN users ON users.id = messages.user_id order by created_at desc"
+		# fetch_messages_query = "SELECT messages.id as message_id, messages.message, concat(users.first_name, ' ', users.last_name) as author_name, messages.created_at FROM messages LEFT JOIN users ON users.id = messages.user_id order by created_at desc"
+		fetch_messages_query = "SELECT messages.id AS message_id, messages.message, CONCAT(users.first_name, ' ', users.last_name) AS author_name, messages.created_at, GROUP_CONCAT(comments.comment SEPARATOR '-----') AS comments, GROUP_CONCAT(CONCAT(users2.first_name, ' ', users2.last_name) SEPARATOR '-----') AS comment_author, GROUP_CONCAT(comments.created_at SEPARATOR '-----') AS comment_created_at FROM messages LEFT JOIN users ON users.id = messages.user_id LEFT JOIN comments ON messages.id = comments.message_id LEFT JOIN users AS users2 ON users2.id = comments.user_id GROUP BY messages.id ORDER BY created_at DESC"
 		all_messages = mysql.fetch(fetch_messages_query)
+		for msg in all_messages:
+			print '============'
+			print msg
+			print '============'
+			msg['comments'] = str(msg['comments']).split('-----')
+			msg['comment_author'] = str(msg['comment_author']).split('-----')
+			msg['comment_created_at'] = str(msg['comment_created_at']).split('-----')
+		print all_messages
 		return render_template('messages.html', all_messages=all_messages)
 	new_message = request.form['message']
 	escaped_new_message = new_message.replace("'", "\\'")
@@ -88,5 +97,16 @@ def show():
 	print insert_message_query
 	mysql.run_mysql_query(insert_message_query)
 	return redirect(url_for('show'))
+
+@app.route('/comments', methods=['POST'])
+def create_comment():
+	new_comment = request.form['comment']
+	message_id = request.form['message_id']
+	escaped_new_comment = new_comment.replace("'", "\\'")
+	insert_comment_query = "INSERT INTO comments (message_id, user_id, comment, created_at, updated_at) VALUES ('{}', '{}', '{}', NOW(), NOW())".format(message_id, session['id'], escaped_new_comment)
+	print insert_comment_query
+	mysql.run_mysql_query(insert_comment_query)
+	return redirect(url_for('show'))
+
 
 app.run(debug=True)
